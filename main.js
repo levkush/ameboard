@@ -6,8 +6,6 @@ const { spawn } = require('child_process');
 
 require('electron-reload')(__dirname);
 
-let virtual_mic = null;
-
 const createWindow = () => {
     const win = new BrowserWindow({
         width: 1275,
@@ -37,27 +35,3 @@ app.whenReady().then(() => {
 app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') app.quit()
 })
-
-async function listOutputDevices() {
-    console.log("Running")
-    let devices = [];
-
-    const rl = readline.createInterface({
-        input: fileStream,
-        crlfDelay: Infinity
-    });
-    
-    for await (const line of rl) {
-        devices.push(line);
-    }
-
-    return devices
-}
-
-function queueSound(filepath, device) {
-    fs.copyFile(filepath, `/tmp/ameboard/playing/${filepath}`, (err) => {
-        if (err) throw err;
-        console.log('source.txt was copied to destination.txt');
-    });
-
-}
