@@ -2,15 +2,8 @@
 <html>
   <head>
     <meta charset="UTF-8" />
-    <!-- https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP -->
-    <meta
-      http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'"
-    />
-    <meta
-      http-equiv="X-Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'"
-    />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'" />
+    <meta http-equiv="X-Content-Security-Policy" content="default-src 'self'; script-src 'self'" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -19,11 +12,11 @@
     <title>Hello from Electron renderer!</title>
   </head>
   <body>
-    <div class="container mx-auto px-4 pt-[4vw]">
-      <div class="grid-flow-row auto-rows-max grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-4" id="sounds">
+    <div class="flex justify-center mt-[5vw]">
+      <div class="grid-flow-row justify-center grid gap-4 grid-cols-3 lg:grid-cols-4" id="sounds">
       </div>
-      <h1>Testing</h1>
     </div>
+    <script src="preload.js"></script>
+    <script src="ui.js"></script>
   </body>
-  <script src="preload.js"></script>
 </html>
