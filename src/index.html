@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html id="drop-zone">
   <head>
     <meta charset="UTF-8" />
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'" />
@@ -9,14 +9,18 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="compiled.css">
-    <title>Hello from Electron renderer!</title>
+    <title>Ameboard v1.0.0</title>
   </head>
   <body>
-    <div class="flex justify-center mt-[5vw]">
+    <div class="flex justify-center mt-[5vw] z-5">
       <div class="grid-flow-row justify-center grid gap-4 grid-cols-3 lg:grid-cols-4" id="sounds">
       </div>
+    
+
     </div>
+    <img src="icons/settings.svg" class="w-[4vw] h-[4vw] absolute bottom-[2vw] right-[2vw]" id="settingsButton">
+
+    <div id="modals"></div>
     <script src="preload.js"></script>
-    <script src="ui.js"></script>
   </body>
 </html>

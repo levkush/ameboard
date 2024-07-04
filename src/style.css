@@ -30,8 +30,31 @@ body {
     font-family: 'Inter';
     font-style: normal;
     background-image: linear-gradient(90deg, #1a0828, #251B4B, #652385);
+    color: #bf8eff
 }
 
+input[type=file]::file-selector-button {
+    margin-right: 10px;
+    border-width: 2px;
+    border-color: #6d6d6d; 
+    border-style: solid;
+    background-color: transparent;
+    padding: 5px 10px;
+    border-radius: 10px;
+    color: #fff;
+    cursor: pointer;
+    transition: all .3s ease-in-out;
+  }
+  
+  input[type=file]::file-selector-button:hover {
+    border-color: #bf8eff;
+  }
+  
+
 .sound {
+    background-color: rgba(11, 11, 11, 0.7);
+}
+
+.modal {
     background-color: rgba(11, 11, 11, 0.7);
 }

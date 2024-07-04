@@ -1,10 +1,12 @@
-const { app, BrowserWindow } = require('electron')
-const fs = require('node:fs');
-const readline = require('readline');
-const path = require("path")
+const { app, BrowserWindow } = require('electron');
+const fs = require('fs');
+const os = require('os');
+const path = require("path");
 const { spawn } = require('child_process');
 
 require('electron-reload')(__dirname);
+
+let daemon; // Declare daemon variable in the global scope
 
 const createWindow = () => {
     const win = new BrowserWindow({
@@ -14,24 +16,48 @@ const createWindow = () => {
             preload: path.join(__dirname, 'src/preload.js'),
             nodeIntegration: true
         }
-    })
+    });
 
-    win.loadFile('src/index.html')
+    win.loadFile('src/index.html');
 }
 
 async function startDaemon() {
-    const daemon = spawn('.venv/bin/python3', ["./daemon.py"])
+    const daemonPath = path.join(process.resourcesPath, 'daemon.exe');
     
-    return daemon
+    daemon = spawn(daemonPath);
+
+    daemon.on('error', (err) => {
+        console.error('Failed to start daemon:', err);
+    });
+
+    daemon.stdout.on('data', (data) => {
+        console.log(`Daemon output: ${data}`);
+    });
+
+    daemon.stderr.on('data', (data) => {
+        console.error(`Daemon error: ${data}`);
+    });
+
+    daemon.on('close', (code) => {
+        console.log(`Daemon exited with code ${code}`);
+    });
+
+    return daemon;
 }
 
-
-
 app.whenReady().then(() => {
-    createWindow()
-    startDaemon()
-})
+    createWindow();
+    startDaemon();
+});
 
 app.on('window-all-closed', () => {
-    if (process.platform !== 'darwin') app.quit()
-})
+    if (process.platform !== 'darwin') {
+        const tempdir = os.tmpdir();
+
+        if (!fs.existsSync(`${tempdir}/ameboard/playing/EXIT_PROGRAM`)) {
+            fs.mkdirSync(`${tempdir}/ameboard/playing/EXIT_PROGRAM`);
+        }
+        
+        app.quit();
+    }
+});
