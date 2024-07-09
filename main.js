@@ -3,6 +3,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require("path");
 const { spawn } = require('child_process');
+const autoUpdater = require("electron-updater");
 
 require('electron-reload')(__dirname);
 
@@ -62,7 +63,10 @@ app.whenReady().then(() => {
     ipcMain.on('unregister-keybind', (event, keybind) => {
         globalShortcut.unregister(keybind)
     });
+
     startDaemon();
+
+    autoUpdater.checkForUpdatesAndNotify();
 });
 
 app.on('window-all-closed', () => {
