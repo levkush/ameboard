@@ -1,4 +1,4 @@
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, globalShortcut, ipcMain } = require('electron');
 const fs = require('fs');
 const os = require('os');
 const path = require("path");
@@ -7,9 +7,10 @@ const { spawn } = require('child_process');
 require('electron-reload')(__dirname);
 
 let daemon; // Declare daemon variable in the global scope
+let mainWindow;
 
 const createWindow = () => {
-    const win = new BrowserWindow({
+    mainWindow = new BrowserWindow({
         width: 1275,
         height: 827,
         webPreferences: {
@@ -18,12 +19,11 @@ const createWindow = () => {
         }
     });
 
-    win.loadFile('src/index.html');
+    mainWindow.loadFile('src/index.html');
 }
 
 async function startDaemon() {
     const daemonPath = path.join(process.resourcesPath, 'daemon.exe');
-    
     daemon = spawn(daemonPath);
 
     daemon.on('error', (err) => {
@@ -47,6 +47,21 @@ async function startDaemon() {
 
 app.whenReady().then(() => {
     createWindow();
+
+    mainWindow.removeMenu()
+
+    ipcMain.on('register-keybind', (event, keybind) => {
+        if (keybind == "null" || keybind == null) return;
+
+        globalShortcut.register(keybind, () => {
+            console.log(`${keybind} pressed`);
+            mainWindow.webContents.send('global-shortcut-pressed', keybind);
+        });
+    });
+    
+    ipcMain.on('unregister-keybind', (event, keybind) => {
+        globalShortcut.unregister(keybind)
+    });
     startDaemon();
 });
 

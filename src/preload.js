@@ -4,6 +4,8 @@ const fs_promise = require('node:fs').promises;
 const readline = require('readline');
 const path = require("path");
 const { parseFile } = require('music-metadata');
+const keyboardJS = require('keyboardjs');
+const { ipcRenderer } = require('electron');
 
 const os = require("os");
 
@@ -11,6 +13,7 @@ const homedir = os.homedir();
 const tempdir = os.tmpdir();
 
 let virtual_mic = null;
+let playing = []
 
 if (!fs.existsSync(`${homedir}/ameboard/`)){
     fs.mkdirSync(`${homedir}/ameboard/`);
@@ -98,7 +101,50 @@ async function addSounds(sounds) {
               </div>
               
         </div>`; 
+        ipcRenderer.send('register-keybind', sounds[index]["keybind"]);
 
+        ipcRenderer.on('global-shortcut-pressed', (event, keybind) => {
+            if (keybind == sounds[index]["keybind"]) {
+                console.log("Pressed")
+
+                let isPlaying = false;
+                let button = document.getElementById(`play-stop-${index}`)
+    
+                if (isPlaying) {
+                    const filePath = `${tempdir}/ameboard/playing/${sounds[index]["file"].replace(/^.*[\\/]/, '')}`;
+                    stopSound(filePath, sounds[index]["start_time"], sounds[index]["end_time"]);
+                    button.innerHTML = `<img src = "icons/play.svg" class="w-[2vw] h-[2vw]" id='${index}'>`;
+                } else {
+                    playSound(sounds[index]["file"], sounds[index]["start_time"], sounds[index]["end_time"]);
+                    button.innerHTML = `<img src = "icons/stop.svg" class="w-[2vw] h-[2vw]" id='${index}'>`;
+                }
+                isPlaying = !isPlaying;
+
+                let counter = 0
+        
+                setInterval(() => {
+                    if (isPlaying) {
+                        const end_time = sounds[index]["end_time"]
+            
+                        if (counter >= end_time) {
+                            button.innerHTML = `<img src = "icons/play.svg" class="w-[2vw] h-[2vw]" id='${index}'>`;
+                            isPlaying = false;
+                            playing.splice(playing.indexOf(sounds[index]["file"]), 1);
+                            counter = 0
+                            return
+                        }
+            
+                        counter += 0.1
+                    } else {
+                        if (counter != 0) {
+                            button.innerHTML = `<img src = "icons/play.svg" class="w-[2vw] h-[2vw]" id='${index}'>`;
+                            counter = 0
+                        }
+                    }
+        
+                }, 100);
+            }
+        });
     });
 }
 
@@ -122,6 +168,8 @@ function passMic(virtual_mic) {
 }
 
 function playSound(file, start_time, end_time) {
+    if (playing.includes(file)) return;
+
     // Splitting file into base name and extension
     const fileParts = path.parse(file);
     const { dir, name, ext } = fileParts;
@@ -134,6 +182,8 @@ function playSound(file, start_time, end_time) {
         if (err) throw err;
         console.log(`${file} copied to ${destination}`);
     });
+
+    playing.push(file)
 }
 
 function openglobalSettings(element, event, config) {
@@ -143,11 +193,20 @@ function openglobalSettings(element, event, config) {
 
     index = element.id
 
-    var mic_options = ""
+    let mic_options = ""
+    let theme_options = ""
 
     let devices = listOutputDevices()
 
     devices.then(function(result) {
+        themes = [
+            "Amethyst",
+            "Emerald",
+            "Ruby",
+            "Sapphire",
+            "Topaz",
+            "Onyx"
+        ]
         result.forEach(mic => {
             if (mic == null) return;
 
@@ -159,6 +218,15 @@ function openglobalSettings(element, event, config) {
 
             console.log(virtual_mic)
         });
+
+        themes.forEach(theme => {
+            if (theme == config["theme"]) {
+                theme_options += `<option value="${theme}" selected>${theme}</option>`
+            } else {
+                theme_options += `<option value="${theme}">${theme}</option>`
+            }
+        });
+
         console.log("Mic options:" + mic_options)
 
         var globalSettingsModal = document.createElement('div');
@@ -170,7 +238,7 @@ function openglobalSettings(element, event, config) {
                 <div class="fixed inset-0 backdrop-blur-[500px] modal bg-opacity-75 transition-opacity" aria-hidden="true"></div>
                 
                 <!-- Modal Content -->
-                <div class="backdrop-blur-lg rounded-[1.5vw] bg-opacity-100 modal rounded-md shadow-xl overflow-hidden max-w-md w-full sm:w-96 md:w-1/2 lg:w-2/3 xl:w-1/3 z-50 border-2 border-[#bf8eff]">
+                <div class="backdrop-blur-lg rounded-[1.5vw] bg-opacity-100 modal rounded-md shadow-xl overflow-hidden max-w-md w-full sm:w-96 md:w-1/2 lg:w-2/3 xl:w-1/3 z-50 border-2 ${config["theme"].toLowerCase()}-border">
                     <!-- Modal Header -->
                     <div class=" text-white px-4 pt-4 flex justify-between">
                         <h2 class="text-xl font-semibold">Settings</h2>
@@ -181,8 +249,17 @@ function openglobalSettings(element, event, config) {
                         <label for="globalSettingsMic" class="block text-sm font-medium leading-6 text-white">Microphone</label>
                         <div class="relative mt-2 rounded-md shadow-sm">
                             <!-- Replace input with select -->
-                            <select name="mic" id="globalSettingsMic" class="block w-full rounded-md border-2 transition ease-in-out border-[#6d6d6d] hover:border-[#bf8eff] duration-300 py-1.5 pl-2 pr-20 text-black bg-transparent placeholder:text-gray-400 focus:none ring-0 sm:text-sm sm:leading-6" id="mic_selector">
+                            <select name="mic" id="globalSettingsMic" class="block w-full rounded-md border-2 transition ease-in-out border-[#6d6d6d] ${config["theme"].toLowerCase()}-border-hover duration-300 py-1.5 pl-2 pr-20 text-neutral-500 bg-transparent placeholder:text-gray-400 focus:none ring-0 sm:text-sm sm:leading-6" id="mic_selector">
                                 ${mic_options}
+                            </select>
+                        </div>
+                    </div>   
+                    <div class="pb-4">
+                        <label for="globalSettingsTheme" class="block text-sm font-medium leading-6 text-white">Theme</label>
+                        <div class="relative mt-2 rounded-md shadow-sm">
+                            <!-- Replace input with select -->
+                            <select name="theme" id="globalSettingsTheme" class="block w-full rounded-md border-2 transition ease-in-out border-[#6d6d6d] ${config["theme"].toLowerCase()}-border-hover duration-300 py-1.5 pl-2 pr-20 text-neutral-500 bg-transparent placeholder:text-gray-400 focus:none ring-0 sm:text-sm sm:leading-6" id="theme_selector">
+                                ${theme_options}
                             </select>
                         </div>
                     </div>   
@@ -192,7 +269,7 @@ function openglobalSettings(element, event, config) {
                             <button class="px-3 py-1 border-2 border-[#6d6d6d] text-white transition duration-300 ease-in-out rounded-md w-full" id="close">Cancel</button>
                         </div>
                         <div class="pl-[1vw] w-2/3">
-                            <button class="px-3 py-1 border-2 border-[#bf8eff] text-white transition duration-300 ease-in-out rounded-md w-full" type="submit">Save</button>
+                            <button class="px-3 py-1 border-2 ${config["theme"].toLowerCase()}-border text-white transition duration-300 ease-in-out rounded-md w-full" type="submit">Save</button>
                         </div>
                     </div>
                 </div>
@@ -219,20 +296,12 @@ function openglobalSettings(element, event, config) {
                 config["virtual_mic"] = newMic
             }
 
-            soundsDiv = document.getElementById('sounds')
-            soundsDiv.innerHTML = ""
-
-            addSounds(sounds)
-
+            if (newMic != sounds["theme"]) {
+                config["theme"] = document.getElementById(`globalSettingsTheme`).value;
+            }
             save(config)
 
-            passMic(newMic)
-
-            initializeEvents(config)
-
-            console.log("NEW MIC:" + config["virtual_mic"])
-
-            globalSettingsModal.remove()
+            window.location.reload();
         });
     })
 }
@@ -247,14 +316,16 @@ function stopSound(file, start_time, end_time) {
     const destination = path.join(tempdir, 'ameboard', 'playing', filename);
 
     fs.mkdirSync(`${destination}CANCEL`);
+    playing.splice(playing.indexOf(file), 1);
 }
 
 function openSoundSettings(element, event, config) {
     sounds = config["sounds"]
 
+
     event.stopPropagation()
 
-    index = element.id
+    let index = element.id
 
     var settingsModal = document.createElement('div');
 
@@ -265,35 +336,46 @@ function openSoundSettings(element, event, config) {
             <div class="fixed inset-0 backdrop-blur-[500px] modal bg-opacity-75 transition-opacity" aria-hidden="true"></div>
             
             <!-- Modal Content -->
-            <div class="backdrop-blur-lg rounded-[1.5vw] bg-opacity-100 modal rounded-md shadow-xl overflow-hidden max-w-md w-full sm:w-96 md:w-1/2 lg:w-2/3 xl:w-1/3 z-50 border-2 border-[#bf8eff]">
+            <div class="backdrop-blur-lg bg-opacity-100 modal rounded-md shadow-xl overflow-hidden max-w-md w-full sm:w-96 md:w-1/2 lg:w-2/3 xl:w-1/3 z-50 border-2 ${config["theme"].toLowerCase()}-border">
                 <!-- Modal Header -->
                 <div class=" text-white px-4 pt-4 flex justify-between">
                     <h2 class="text-xl font-semibold">Sound Settings</h2>
-                    <img src = "icons/delete.svg" class="w-[2vw] h-[2vw] sound_settings", id='settingsDelete'>
+                    <div class="flex">
+                        <div id="settingsPreview">
+                            <img src = "icons/play.svg" class="w-[2vw] h-[2vw]" id='${index}'>
+                        </div>
+                        <img src = "icons/delete.svg" class="w-[2vw] h-[2vw] z-99", id='settingsDelete'>
+                    </div>
                 </div>
                 <!-- Modal Body -->
                 <div class="p-4">
                 <div class="pb-4">
                     <label for="settingsName" class="block text-sm font-medium leading-6 text-white">Name</label>
                     <div class="relative mt-2 rounded-md shadow-sm">
-                    <input type="text" name="name" id="settingsName" class="block w-full rounded-md border-2 transition ease-in-out border-[#6d6d6d] hover:border-[#bf8eff] duration-300 py-1.5 pl-2 pr-20 text-white bg-transparent placeholder:text-gray-400 focus:none ring-0 sm:text-sm sm:leading-6" value="${sounds[index]["name"]}">
+                    <input type="text" name="name" id="settingsName" class="block w-full rounded-md border-2 transition ease-in-out border-[#6d6d6d] ${config["theme"].toLowerCase()}-border-hover duration-300 py-1.5 pl-2 pr-20 text-white bg-transparent placeholder:text-gray-400 focus:none ring-0 sm:text-sm sm:leading-6" value="${sounds[index]["name"]}">
                     </div>
                 </div>  
                 <div class="pb-4">
                     <label for="settingsStartTime" class="block text-sm font-medium leading-6 text-white">Start time</label>
                     <div class="relative mt-2 rounded-md shadow-sm">
-                        <input type="text" name="name" id="settingsStartTime" class="block w-full rounded-md border-2 transition ease-in-out border-[#6d6d6d] hover:border-[#bf8eff] duration-300 py-1.5 pl-2 pr-20 text-white bg-transparent placeholder:text-gray-400 focus:none ring-0 sm:text-sm sm:leading-6" value="${sounds[index]["start_time"]}">
+                        <input type="text" name="settingsStartTime" id="settingsStartTime" class="block w-full rounded-md border-2 transition ease-in-out border-[#6d6d6d] ${config["theme"].toLowerCase()}-border-hover duration-300 py-1.5 pl-2 pr-20 text-white bg-transparent placeholder:text-gray-400 focus:none ring-0 sm:text-sm sm:leading-6" value="${sounds[index]["start_time"]}">
                     </div>
                 </div>
                 <div class="pb-4">
                     <label for="settingsEndTime" class="block text-sm font-medium leading-6 text-white">End time</label>
                     <div class="relative mt-2 rounded-md shadow-sm">
-                        <input type="text" name="name" id="settingsEndTime" class="block w-full rounded-md border-2 transition ease-in-out border-[#6d6d6d] hover:border-[#bf8eff] duration-300 py-1.5 pl-2 pr-20 text-white bg-transparent placeholder:text-gray-400 focus:none ring-0 sm:text-sm sm:leading-6" value="${sounds[index]["end_time"]}">
+                        <input type="text" name="settingsEndTime" id="settingsEndTime" class="block w-full rounded-md border-2 transition ease-in-out border-[#6d6d6d] ${config["theme"].toLowerCase()}-border-hover duration-300 py-1.5 pl-2 pr-20 text-white bg-transparent placeholder:text-gray-400 focus:none ring-0 sm:text-sm sm:leading-6" value="${sounds[index]["end_time"]}">
+                    </div>
+                </div>
+                <div class="pb-4">
+                    <label for="settingsKeybind" class="block text-sm font-medium leading-6 text-white">Keybind</label>
+                    <div class="relative mt-2 rounded-md shadow-sm">
+                        <input type="text" name="settingsKeybind" id="settingsKeybind" class="block w-full rounded-md border-2 transition ease-in-out border-[#6d6d6d] ${config["theme"].toLowerCase()}-border-hover duration-300 py-1.5 pl-2 pr-20 text-white bg-transparent placeholder:text-gray-400 focus:none ring-0 sm:text-sm sm:leading-6" value="${sounds[index]["keybind"]}">
                     </div>
                 </div>
                 <div class="pb-4">
                     <label class="block text-sm font-medium text-gray-900 text-white" for="default_size">Icon</label>
-                    <input id="settingsFile" class="block rounded-md border-2 border-[#6d6d6d] hover:border-[#bf8eff]  transition ease-in-out duration-300 w-fulltext-sm text-white py-2 pl-2 w-full" id="default_size" type="file">
+                    <input id="settingsFile" class="block rounded-md border-2 border-[#6d6d6d] ${config["theme"].toLowerCase()}-border-hover  transition ease-in-out duration-300 w-fulltext-sm text-white py-2 pl-2 w-full" id="default_size" type="file">
                 </div> 
                 <!-- Modal Footer -->
                 <div class="flex">
@@ -301,14 +383,56 @@ function openSoundSettings(element, event, config) {
                         <button class="px-3 py-1 border-2 border-[#6d6d6d] text-white transition duration-300 ease-in-out rounded-md w-full" id="close">Cancel</button>
                     </div>
                     <div class="pl-[1vw] w-2/3">
-                        <button class="px-3 py-1 border-2 border-[#bf8eff] text-white transition duration-300 ease-in-out rounded-md w-full" type="submit">Save</button>
+                        <button class="px-3 py-1 border-2 ${config["theme"].toLowerCase()}-border text-white transition duration-300 ease-in-out rounded-md w-full" type="submit">Save</button>
                     </div>
                 </div>
             </div>
         </div>
     <form>
     `;
+
     document.body.appendChild(settingsModal);
+
+    let isPlaying = false;
+    let button = document.getElementById(`settingsPreview`);
+    
+    document.getElementById(`settingsPreview`).addEventListener('click', function(e) {
+        e.stopImmediatePropagation()
+        playSound(sounds[index]["file"], sounds[index]["start_time"], sounds[index]["end_time"]);
+        if (isPlaying) {
+            const filePath = `${tempdir}/ameboard/playing/${sounds[index]["file"].replace(/^.*[\\/]/, '')}`;
+            stopSound(filePath, sounds[index]["start_time"], sounds[index]["end_time"]);
+            button.innerHTML = `<img src = "icons/play.svg" class="w-[2vw] h-[2vw]" id='${index}'>`;
+        } else {
+            playSound(sounds[index]["file"], sounds[index]["start_time"], sounds[index]["end_time"]);
+            button.innerHTML = `<img src = "icons/stop.svg" class="w-[2vw] h-[2vw]" id='${index}'>`;
+        }
+        isPlaying = !isPlaying;
+    }, false);
+    
+    let counter = 0
+
+    setInterval(() => {
+        if (isPlaying) {
+            const end_time = sounds[index]["end_time"]
+
+            if (counter >= end_time) {
+                button.innerHTML = `<img src = "icons/play.svg" class="w-[2vw] h-[2vw]" id='${index}'>`;
+                isPlaying = false;
+                playing.splice(playing.indexOf(sounds[index]["file"]), 1);
+                counter = 0
+                return
+            }
+
+            counter += 0.1
+        } else {
+            if (counter != 0) {
+                button.innerHTML = `<img src = "icons/play.svg" class="w-[2vw] h-[2vw]" id='${index}'>`;
+                counter = 0
+            }
+        }
+
+    }, 100);
 
     // Show the modal
     settingsModal.style.display = 'block';
@@ -321,14 +445,22 @@ function openSoundSettings(element, event, config) {
 
         config["sounds"] = sounds
 
-        soundsDiv = document.getElementById('sounds')
-        soundsDiv.innerHTML = ""
+        save(config)
 
-        addSounds(sounds)
+        window.location.reload();
+    })
+
+    document.getElementById(`settingsPreview`).addEventListener('click', function(e) {
+        settingsModal.remove()
+        e.stopPropagation()
+
+        sounds.splice(index, 1); 
+
+        config["sounds"] = sounds
 
         save(config)
 
-        initializeEvents(config)
+        window.location.reload();
     })
 
     document.getElementById(`close`).addEventListener('click', function(e) {
@@ -360,24 +492,21 @@ function openSoundSettings(element, event, config) {
             changed = true
         }
 
+        keyboardJS.unbind(sounds[index]["keybind"])
+
         sounds[index]["start_time"] = parseFloat(document.getElementById(`settingsStartTime`).value.trim())
         sounds[index]["end_time"] = parseFloat(document.getElementById(`settingsEndTime`).value.trim())
+
+        sounds[index]["keybind"] = document.getElementById(`settingsKeybind`).value.trim().toLowerCase()
 
         console.log(newName, newFile);
         console.log(sounds)
 
         config["sounds"] = sounds
 
-        soundsDiv = document.getElementById('sounds')
-        soundsDiv.innerHTML = ""
-
-        addSounds(sounds)
-
         save(config)
 
-        initializeEvents(config)
-
-        settingsModal.remove()
+        window.location.reload();
     });
 }
 
@@ -396,9 +525,45 @@ function initializeEvents(config) {
     sounds = config["sounds"]
 
     Array.prototype.forEach.call(sound_divs, (element, index) => {
+        let isPlaying = false;
+        let button = document.getElementById(`play-stop-${index}`);
+        
         element.addEventListener('click', function() {
             playSound(sounds[index]["file"], sounds[index]["start_time"], sounds[index]["end_time"]);
+            if (isPlaying) {
+                const filePath = `${tempdir}/ameboard/playing/${sounds[index]["file"].replace(/^.*[\\/]/, '')}`;
+                stopSound(filePath, sounds[index]["start_time"], sounds[index]["end_time"]);
+                button.innerHTML = `<img src = "icons/play.svg" class="w-[2vw] h-[2vw]" id='${index}'>`;
+            } else {
+                playSound(sounds[index]["file"], sounds[index]["start_time"], sounds[index]["end_time"]);
+                button.innerHTML = `<img src = "icons/stop.svg" class="w-[2vw] h-[2vw]" id='${index}'>`;
+            }
+            isPlaying = !isPlaying;
         }, false);
+        
+        let counter = 0
+
+        setInterval(() => {
+            if (isPlaying) {
+                const end_time = sounds[index]["end_time"]
+    
+                if (counter >= end_time) {
+                    button.innerHTML = `<img src = "icons/play.svg" class="w-[2vw] h-[2vw]" id='${index}'>`;
+                    isPlaying = false;
+                    playing.splice(playing.indexOf(sounds[index]["file"]), 1);
+                    counter = 0
+                    return
+                }
+    
+                counter += 0.1
+            } else {
+                if (counter != 0) {
+                    button.innerHTML = `<img src = "icons/play.svg" class="w-[2vw] h-[2vw]" id='${index}'>`;
+                    counter = 0
+                }
+            }
+
+        }, 100);
     });
 
     sound_settings_buttons = document.getElementsByClassName("sound_settings")
@@ -428,24 +593,28 @@ function initializeEvents(config) {
             isPlaying = !isPlaying;
         });
 
+        let counter = 0
+
         setInterval(() => {
-            const filePath = `${tempdir}/ameboard/playing/${sounds[index]["file"].replace(/^.*[\\/]/, '')}`;
-            
-            const start_time = sounds[index]["start_time"]
-            const end_time = sounds[index]["end_time"]
-
-            // Splitting file into base name and extension
-            const fileParts = path.parse(filePath);
-            const { dir, name, ext } = fileParts;
-
-            // Constructing new filename with start_time and end_time
-            const filename = `${name.replace(/_/g, '')}_${start_time.toFixed(2)}_${end_time.toFixed(2)}${ext}`;
-            const destination = path.join(tempdir, 'ameboard', 'playing', filename);
-
-            if (!fs.existsSync(destination) && isPlaying) {
-                button.innerHTML = `<img src = "icons/play.svg" class="w-[2vw] h-[2vw]" id='${index}'>`;
-                isPlaying = false;
+            if (isPlaying) {
+                const end_time = sounds[index]["end_time"]
+    
+                if (counter >= end_time) {
+                    button.innerHTML = `<img src = "icons/play.svg" class="w-[2vw] h-[2vw]" id='${index}'>`;
+                    isPlaying = false;
+                    playing.splice(playing.indexOf(sounds[index]["file"]), 1);
+                    counter = 0
+                    return
+                }
+    
+                counter += 0.1
+            } else {
+                if (counter != 0) {
+                    button.innerHTML = `<img src = "icons/play.svg" class="w-[2vw] h-[2vw]" id='${index}'>`;
+                    counter = 0
+                }
             }
+
         }, 100);
     });
 }
@@ -483,10 +652,7 @@ async function handleDrop(event) {
         if (file.type.startsWith('audio/')) {
             let end_path = `${homedir}/ameboard/sounds/${file.name}`
 
-            fs.copyFile(file.path, end_path, (err) => {
-                if (err) throw err;
-                console.log('Copied file');
-            });    
+            await fs.copyFileSync(file.path, end_path)
 
             const metadata = await parseFile(end_path);
             const duration = metadata.format.duration
@@ -497,6 +663,7 @@ async function handleDrop(event) {
                 file: end_path,
                 icon: "null.jpg",
                 start_time: 0,
+                keybind: null,
                 end_time: duration
             };
 
@@ -504,14 +671,9 @@ async function handleDrop(event) {
             const config = await load();
             config.sounds.push(sound);
 
-            soundsDiv = document.getElementById('sounds')
-            soundsDiv.innerHTML = ""
-
-            addSounds(config.sounds)
-
             save(config)
 
-            initializeEvents(config)
+            window.location.reload();
         }
     }
 }
@@ -520,6 +682,10 @@ document.addEventListener('DOMContentLoaded', function() {
     load().then(function(config) {
         console.log(config)
         sounds = config["sounds"]
+
+        body = document.getElementById("body")
+
+        body.classList.add(`${config["theme"].toLowerCase()}-bg`);
 
         addSounds(sounds)
 
