@@ -1,15 +1,13 @@
 {
   "name": "ameboard",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A free and open source soundboard",
   "main": "main.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
     "start": "electron-forge start",
     "tailwind": "npx tailwindcss -i ./src/style.css -o ./src/compiled.css --watch",
-    "package": "electron-forge package",
-    "make": "electron-forge make",
-    "build": "electron-builder"
+    "build": "electron-builder --windows",
+    "release": "electron-builder --windows --publish always"
   },
   "repository": {
     "type": "git",
@@ -50,6 +48,7 @@
     "@fontsource-variable/inter": "^5.0.18",
     "electron-reload": "^2.0.0-alpha.1",
     "electron-squirrel-startup": "^1.0.1",
+    "electron-updater": "^6.2.1",
     "music-metadata": "^7.14.0"
   },
   "build": {

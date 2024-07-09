@@ -189,9 +189,8 @@ def main():
     except KeyboardInterrupt:
         pass
     finally:
-        exit_code.set()
-
-    pygame.mixer.quit()
+        pygame.mixer.quit()
 
 if __name__ == "__main__":
+    multiprocessing.freeze_support()
     main()
