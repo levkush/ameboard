@@ -84,7 +84,7 @@ def extract_times_from_filename(filename: str) -> tuple[float, float]:
         os.remove(filename)
 
 def monitor_directory(directory: str, device: str, default: bool):
-    global playing, playing_client
+    global playing, playing_client, exit_code
 
     pygame.mixer.pre_init(44100, -16, 2, 2048)
     pygame.mixer.init(devicename=device)
@@ -148,8 +148,8 @@ def monitor_directory(directory: str, device: str, default: bool):
                         while os.path.exists(file_path):
                             try:
                                 os.remove(file_path)
-                            except Exception:
-                                pass
+                            except Exception as e:
+                                continue
             except Exception as e:
                 print(e)
 
@@ -189,7 +189,8 @@ def main():
     except KeyboardInterrupt:
         pass
     finally:
-        pygame.mixer.quit()
+        mic_output.kill()
+        default_output.kill()
 
 if __name__ == "__main__":
     multiprocessing.freeze_support()

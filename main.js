@@ -1,9 +1,10 @@
 const { app, BrowserWindow, globalShortcut, ipcMain } = require('electron');
 const fs = require('fs');
 const os = require('os');
+const url = require('url');
 const path = require("path");
-const { spawn } = require('child_process');
-const autoUpdater = require("electron-updater");
+const { spawn, exec } = require('child_process');
+const { autoUpdater } = require("electron-updater")
 
 require('electron-reload')(__dirname);
 
@@ -20,7 +21,11 @@ const createWindow = () => {
         }
     });
 
-    mainWindow.loadFile('src/index.html');
+    mainWindow.loadURL(url.format({
+        pathname: path.join(__dirname, 'src/index.html'),
+        protocol: 'file:',
+        slashes: true
+    }));
 }
 
 async function startDaemon() {
@@ -51,20 +56,30 @@ app.whenReady().then(() => {
 
     mainWindow.removeMenu()
 
-    ipcMain.on('register-keybind', (event, keybind) => {
-        if (keybind == "null" || keybind == null) return;
+    mainWindow.webContents.on('before-input-event', (_, input) => {
+        if (input.type === 'keyDown' && input.key === 'F12') {
+            mainWindow.webContents.isDevToolsOpened()
+            ? mainWindow.webContents.closeDevTools()
+            : mainWindow.webContents.openDevTools({ mode: 'right' });
+        }
+    });
 
-        globalShortcut.register(keybind, () => {
-            console.log(`${keybind} pressed`);
-            mainWindow.webContents.send('global-shortcut-pressed', keybind);
-        });
+    ipcMain.on('register-keybind', (event, keybind) => {
+        try {
+            globalShortcut.register(keybind, () => {
+                console.log(`${keybind} pressed`);
+                mainWindow.webContents.send('global-shortcut-pressed', keybind);
+            });
+        } catch {}
     });
     
     ipcMain.on('unregister-keybind', (event, keybind) => {
-        globalShortcut.unregister(keybind)
+        try {
+            globalShortcut.unregister(keybind)
+        } catch {}
     });
 
-    startDaemon();
+    daemon = startDaemon();
 
     autoUpdater.checkForUpdatesAndNotify();
 });
@@ -73,10 +88,11 @@ app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') {
         const tempdir = os.tmpdir();
 
-        if (!fs.existsSync(`${tempdir}/ameboard/playing/EXIT_PROGRAM`)) {
-            fs.mkdirSync(`${tempdir}/ameboard/playing/EXIT_PROGRAM`);
-        }
-        
+        // if (!fs.existsSync(`${tempdir}/ameboard/playing/EXIT_PROGRAM`)) {
+        //     fs.mkdirSync(`${tempdir}/ameboard/playing/EXIT_PROGRAM`);
+        // }
+
+        exec("taskkill /f /im daemon.exe", (error, stdout, stderr) => {});
         app.quit();
     }
 });

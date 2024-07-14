@@ -4,7 +4,6 @@ const fs_promise = require('node:fs').promises;
 const readline = require('readline');
 const path = require("path");
 const { parseFile } = require('music-metadata');
-const keyboardJS = require('keyboardjs');
 const { ipcRenderer } = require('electron');
 
 const os = require("os");
@@ -492,7 +491,7 @@ function openSoundSettings(element, event, config) {
             changed = true
         }
 
-        keyboardJS.unbind(sounds[index]["keybind"])
+        ipcRenderer.send('unregister-keybind', sounds[index]["keybind"]);
 
         sounds[index]["start_time"] = parseFloat(document.getElementById(`settingsStartTime`).value.trim())
         sounds[index]["end_time"] = parseFloat(document.getElementById(`settingsEndTime`).value.trim())
